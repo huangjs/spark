@@ -63,6 +63,8 @@ private[spark] class EventLoggingListener(
   private val shouldOverwrite = sparkConf.getBoolean("spark.eventLog.overwrite", false)
   private val testing = sparkConf.getBoolean("spark.eventLog.testing", false)
   private val outputBufferSize = sparkConf.getInt("spark.eventLog.buffer.kb", 100) * 1024
+  private val logFilePermission = new FsPermission(Integer.parseInt(sparkConf.get("spark.eventLog.permission", "770"), 8).toShort)
+
   private val fileSystem = Utils.getHadoopFileSystem(logBaseDir, hadoopConf)
   private val compressionCodec =
     if (shouldCompress) {
@@ -127,7 +129,7 @@ private[spark] class EventLoggingListener(
       val bstream = new BufferedOutputStream(cstream, outputBufferSize)
 
       EventLoggingListener.initEventLog(bstream)
-      fileSystem.setPermission(path, LOG_FILE_PERMISSIONS)
+      fileSystem.setPermission(path, logFilePermission)
       writer = Some(new PrintWriter(bstream))
       logInfo("Logging events to %s".format(logPath))
     } catch {
@@ -227,8 +229,6 @@ private[spark] object EventLoggingListener extends Logging {
   val DEFAULT_LOG_DIR = "/tmp/spark-events"
   val SPARK_VERSION_KEY = "SPARK_VERSION"
   val COMPRESSION_CODEC_KEY = "COMPRESSION_CODEC"
-
-  private val LOG_FILE_PERMISSIONS = new FsPermission(Integer.parseInt("770", 8).toShort)
 
   // A cache for compression codecs to avoid creating the same codec many times
   private val codecMap = new mutable.HashMap[String, CompressionCodec]
